@@ -7,13 +7,16 @@
 
 const int dirPin_1 = 3, stepPin_1 = 4, enPin_1 = 5;
 const int dirPin_2 = 8, stepPin_2 = 9, enPin_2 = 10;
+const int min_delay = 2000, max_delay = 5000;
 
 bool switchState, clockwise = false;
+int rand_number;
+
+bool inZero = true;
+int start_step, end_step;
 
 void setup()
 {
-    Serial.begin(9600);
-
     randomSeed(analogRead(0));
     pinMode(startSwitch, INPUT_PULLUP);
     pinMode(buzzer, OUTPUT);
@@ -35,7 +38,7 @@ void loop()
     // якщо вкючений, стартуємо раунд
     if (switchState)
     {
-        delay(random(2000, 4000));
+        delay(random(min_delay, max_delay));
 
         // звуковий сигнал
         tone(buzzer, 2000, 500);
@@ -45,32 +48,30 @@ void loop()
         digitalWrite(enPin_2, LOW);
         while (switchState)
         {
-            int rand_number = random(1, 4);
-            if (rand_number == 1)
-            {
-                // рух вниз
-                clockwise = !clockwise;
-            }
-            else if (rand_number == 2)
-            {
-                // нікуди не рухаємось, залишаємось в рівень з поверхністю
-                delay(random(1000, 4000));
-                continue;
-            }
-            // в іншому випадку, при генерації 3-йки, рух вгору 
+            rand_number = random(1, 4);
             
-            // старт руху
-            start_rotate();
-            delay(random(1000, 4000));
-
-            // для повернення в позицію з якої почали
-            clockwise = !clockwise;
-            start_rotate();
-
-            // повторно перевіряємо положення тумблера
-            switchState = digitalRead(startSwitch);
-            delay(random(1000, 4000));
+            // повний цикл руху поршня
+            action();
         }
+        
+        // якщо не в нульовому положенні, повертаємось
+        if(!inZero)
+        {
+          rand_number = 1;
+          action();
+        }
+
+        // якщо в нульовому, сигналізуємо пищалкою
+        if(inZero)
+        {
+          for(int i = 0; i < 2; i++)
+          {
+            tone(buzzer, 1500);
+            delay(100);
+            noTone(buzzer);
+            delay(100);
+          }
+       }
     }
     else
     {
@@ -84,11 +85,11 @@ void loop()
 }
 
 
-void start_rotate()
+void start_rotate(int steps)
 {
     digitalWrite(dirPin_1, !clockwise);
     digitalWrite(dirPin_2, clockwise);
-    for (int x = 0; x < 1100; x++)
+    for (int x = 0; x < steps; x++)
     {
         digitalWrite(stepPin_1, HIGH);
         digitalWrite(stepPin_2, HIGH);
@@ -97,4 +98,60 @@ void start_rotate()
         digitalWrite(stepPin_2, LOW);
         delayMicroseconds(500);
     }
+}
+
+void action()
+{
+    if (rand_number == 1)
+    {
+        // рух вниз
+        clockwise = !clockwise;
+        if(inZero)
+        {
+          start_step = 1100;
+          end_step = 1100;
+        }
+        else
+        {
+          start_step = 1080;
+          end_step = 1100;
+          inZero = !inZero;
+        }
+    }
+    else if (rand_number == 3)
+    {
+        // рух вгору
+        if(inZero)
+        {
+          start_step = 1080;
+          end_step = 1100;
+          inZero = !inZero;
+        }
+        else
+        {
+          start_step = 1100;
+          end_step = 1100;
+        }
+    }
+    else
+    {
+      // нікуди не рухаємось, залишаємось в рівень з поверхністю
+        delay(random(min_delay, max_delay));
+        return;
+    }
+
+    // старт руху
+    start_rotate(start_step);
+    delay(random(min_delay, max_delay));
+    
+    // для повернення в позицію з якої почали
+    clockwise = !clockwise;
+    start_rotate(end_step);
+    
+    // повторно перевіряємо положення тумблера
+    switchState = digitalRead(startSwitch);
+    delay(random(min_delay, max_delay));
+    
+    // повертаємо у початкове положення
+    clockwise = false;
 }
